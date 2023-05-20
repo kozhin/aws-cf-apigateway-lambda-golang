@@ -1,2 +1,3 @@
-# aws-cf-apigateway-lambda-golang
-CloudFormation stack to run Golang Lambda functions with API Gateway V2
+# README
+
+AWS CloudFormation stack to run Golang AWS Lambda functions for endpoints of AWS API Gateway v2.
