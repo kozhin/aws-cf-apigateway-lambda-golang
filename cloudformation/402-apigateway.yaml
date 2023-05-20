@@ -1,0 +1,142 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: AwesomeApp - AWS API Gateway V2 stack
+
+Parameters:
+
+  ProductName:
+    Type: String
+    Default: awesomeapp
+    Description: Your new awesome product name
+
+  ProductNameCamel:
+    Type: String
+    Default: AwesomeApp
+    Description: Your new awesome product name in camel case
+
+  ComponentName:
+    Type: String
+    Default: app
+    Description: Application component name, e.g. my-component
+
+  ApiGatewayPrefix:
+    Type: String
+    Default: ag
+    Description: Your AWS API Gateway name prefix, e.g. ag-some-name
+
+  DomainName:
+    Type: String
+    Default: app.example.com
+    Description: A domain name, e.g. example.com.
+
+  EnvName:
+    Type: String
+    Default: development
+    Description: Environment name, e.g. development | production
+
+Resources:
+
+  agDomainName:
+    Type: AWS::ApiGatewayV2::DomainName
+    Properties:
+      DomainName: !Ref DomainName
+      DomainNameConfigurations:
+        - EndpointType: ALL
+          CertificateArn: !Sub "{{resolve:ssm:${ProductNameCamel}AcmCertArn:1}}"
+
+  agApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      CorsConfiguration:
+        AllowMethods:
+          - POST
+          - OPTIONS
+        AllowOrigins:
+          - "*"
+        MaxAge: 300
+        AllowHeaders:
+          - "Content-Type"
+        # ExposeHeaders:
+        #   - String
+      Description: !Sub "AwesomeApp (${EnvName})"
+      DisableExecuteApiEndpoint: true
+      Name: !Sub "${ApiGatewayPrefix}-${ProductName}-${ComponentName}-${EnvName}"
+      ProtocolType: HTTP
+      Tags: {
+        "Product": !Ref ProductName,
+        "Environment": !Ref EnvName,
+        "Name": !Sub "${ApiGatewayPrefix}-${ProductName}-${ComponentName}-${EnvName}"
+      }
+
+  agApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: v1
+      ApiId: !Ref agApi
+      AutoDeploy: true
+      Description: !Sub "AwesomeApp API (${EnvName}, stage V1)"
+
+  agApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Properties:
+      DomainName: !Ref agDomainName
+      Stage: !Ref agApiStage
+      ApiId: !Ref agApi
+
+  agApiDeployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    Properties:
+      ApiId: !Ref agApi
+      StageName: !Ref agApiStage
+
+  agApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref agApi
+      #
+      # Private API Gateway only
+      #
+      # ConnectionId: String
+      ConnectionType: INTERNET
+      CredentialsArn: !Sub "{{resolve:ssm:${ProductNameCamel}RoleArn:1}}"
+      Description: !Sub "CRM API (${EnvName})"
+      IntegrationMethod: ANY
+      # IntegrationSubtype: String
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:{{resolve:ssm:${ProductNameCamel}LambdaName-${ComponentName}-${EnvName}:1}}"
+      # PassthroughBehavior: String
+      PayloadFormatVersion: "2.0"
+      # RequestParameters: Json
+      # RequestTemplates: Json
+      # ResponseParameters: { "201" : { "append:header.sample-header-name": "sample-header-value" } }
+      # TemplateSelectionExpression: String
+      TimeoutInMillis: 30000
+      #
+      # Private API Gateway only
+      #
+      # TlsConfig:
+      #   TlsConfig
+
+  agApiRoute01:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      RouteKey: "ANY /api/v1/{proxy+}"
+      ApiId: !Ref agApi
+      Target: !Join
+        - /
+        - - integrations
+          - !Ref agApiIntegration
+
+  #
+  # NOTE:
+  # Just a sample route, actually we have just one route
+  #
+  # agApiRoute02:
+  #   Type: AWS::ApiGatewayV2::Route
+  #   Properties:
+  #     RouteKey: "GET /api/v1/requests/:id"
+  #     ApiId: !Ref agApi
+  #     Target: !Join
+  #       - /
+  #       - - integrations
+  #         - !Ref agApiIntegration

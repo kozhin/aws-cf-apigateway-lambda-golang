@@ -1,0 +1,57 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: AwesomeApp - AWS System Manager parameters for AWS CodeCommit repos
+
+Parameters:
+
+  ProductName:
+    Type: String
+    Default: awesomeapp
+    Description: Your new awesome product name
+
+  ProductNameCamel:
+    Type: String
+    Default: AwesomeApp
+    Description: Your new awesome product name in camel case
+
+  CcRepoNamePrefix:
+    Type: String
+    Default: cc
+    Description: Prefix for AWS CodeCommit repo name, e.g. my-prefix
+
+Resources:
+  #
+  # NOTE:
+  # We don't create AWS CodeCommit repos with AWS CloudFormation
+  # templates as it's easy to wipe out all your code by rolling back stacks,
+  # but we need AWS SSM parameters with repo names inside.
+
+  #
+  # Main component (optional)
+  #
+  # ssmRepoName:
+  #   Type: AWS::SSM::Parameter
+  #   Properties:
+  #     Name: !Sub "${ProductNameCamel}CcRepoName"
+  #     Type: String
+  #     Value: !Sub "${RepoNamePrefix}-${ProductName}"
+
+  #
+  # Component App
+  #
+  ssmRepoNameApp:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "${ProductNameCamel}CcRepoName-app"
+      Type: String
+      Value: !Sub "${CcRepoNamePrefix}-${ProductName}-app"
+
+  #
+  # Componen App2 (example)
+  #
+  # ssmRepoNameApp2:
+  #   Type: AWS::SSM::Parameter
+  #   Properties:
+  #     Name: !Sub "${ProductNameCamel}CcRepoName-app2"
+  #     Type: String
+  #     Value: !Sub "${CcRepoNamePrefix}-${ProductName}-app2"

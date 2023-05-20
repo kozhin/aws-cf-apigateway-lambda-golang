@@ -1,0 +1,49 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: AwesomeApp - AWS ACM certificates
+
+Parameters:
+
+  ProductName:
+    Type: String
+    Default: awesomeapp
+    Description: Your new awesome product name
+
+  ProductNameCamel:
+    Type: String
+    Default: AwesomeApp
+    Description: Your new awesome product name in camel case
+
+  DomainName:
+    Type: String
+    Default: example.com
+    Description: A domain name, e.g. example.com
+
+  EnvName:
+    Type: String
+    Default: production
+    Description: Environment name, e.g. development | production
+
+Resources:
+
+  acmCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub "*.${DomainName}"
+      SubjectAlternativeNames:
+        - !Ref DomainName
+      ValidationMethod: DNS
+      Tags:
+        - Key: Product
+          Value: !Ref ProductName
+        - Key: Environment
+          Value: !Ref EnvName
+        - Key: Name
+          Value: !Ref DomainName
+
+  ssmAcmCertificateARN:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "${ProductNameCamel}AcmCertArn"
+      Type: String
+      Value: !Ref acmCertificate
