@@ -99,7 +99,7 @@ Resources:
       # ConnectionId: String
       ConnectionType: INTERNET
       CredentialsArn: !Sub "{{resolve:ssm:${ProductNameCamel}RoleArn:1}}"
-      Description: !Sub "CRM API (${EnvName})"
+      Description: !Sub "AwesomeApp (${EnvName})"
       IntegrationMethod: ANY
       # IntegrationSubtype: String
       IntegrationType: AWS_PROXY
