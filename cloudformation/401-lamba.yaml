@@ -1,0 +1,99 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: AwesomeApp - AWS Lambda function stack
+
+Parameters:
+
+  ProductName:
+    Type: String
+    Default: awesomeapp
+    Description: Your new awesome product name
+
+  ProductNameCamel:
+    Type: String
+    Default: AwesomeApp
+    Description: Your new awesome product name in camel case
+
+  ComponentName:
+    Type: String
+    Default: app
+    Description: Application component name, e.g. my-component
+
+  LambdaNamePrefix:
+    Type: String
+    Default: lmb
+    Description: Prefix for AWS Lambda function name, e.g. my-prefix
+
+  # EventBridgeNamePrefix:
+  #   Type: String
+  #   Default: eb
+  #   Description: Prefix for AWS Event Bridge event name, e.g. my-prefix
+
+  EnvName:
+    Type: String
+    Default: development
+    Description: Environment name, e.g. development | production
+
+  BranchName:
+    Type: String
+    Default: dev
+    Description: Branch name, e.g. dev | main
+
+Resources:
+
+  lmbFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${LambdaNamePrefix}-${ProductName}-${ComponentName}-${EnvName}"
+      Role: !Sub "{{resolve:ssm:${ProductNameCamel}RoleArn:1}}"
+      MemorySize: 128
+      Timeout: 30
+      PackageType: Image
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{resolve:ssm:${ProductNameCamel}EcrRepoName-${ComponentName}:1}}:${BranchName}"
+      Environment:
+        Variables:
+          AWS_S3_REGION: !Sub ${AWS::Region}
+          # AWS_S3_BUCKET: !Sub "{{resolve:ssm:${ProductNameCamel}BucketName-${ComponentName}:1}}"
+          APP_ENV: !Ref EnvName
+          ENV: !Ref EnvName
+      Tags:
+        - Key: Product
+          Value: !Ref ProductName
+        - Key: Environment
+          Value: !Ref EnvName
+        - Key: Name
+          Value: !Sub "${LambdaNamePrefix}-${ProductName}-${ComponentName}-${EnvName}"
+
+  # eventRule:
+  #   Type: AWS::Events::Rule
+  #   Properties:
+  #     Name: !Sub "${EventBridgeNamePrefix}-${ProductName}-${ComponentName}-${EnvName}"
+  #     State: ENABLED
+  #     ScheduleExpression: "cron(0 0 5-10 * ? *)"
+  #     Targets:
+  #       -
+  #         Arn: !GetAtt [lmbFunction, Arn]
+  #         Id: !Sub "trg-${LambdaNamePrefix}-${ProductName}-${ComponentName}-${EnvName}"
+
+  # PermissionForEventsToInvokeLambda:
+  #   Type: AWS::Lambda::Permission
+  #   Properties:
+  #     FunctionName: !Ref lmbFunction
+  #     Action: lambda:InvokeFunction
+  #     Principal: events.amazonaws.com
+  #     SourceArn: !GetAtt [eventRule, Arn]
+
+  ssmLambdaArn:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "${ProductNameCamel}LambdaFunctionArn-${ComponentName}-${EnvName}"
+      Type: String
+      Value: !GetAtt [lmbFunction, Arn]
+
+  ssmLambdaName:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "${ProductNameCamel}LambdaName-${ComponentName}-${EnvName}"
+      Type: String
+      Value: !Sub "${LambdaNamePrefix}-${ProductName}-${ComponentName}-${EnvName}"

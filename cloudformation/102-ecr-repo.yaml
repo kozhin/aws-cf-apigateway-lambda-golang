@@ -1,0 +1,95 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: AwesomeApp - AWS ECR repos
+
+Parameters:
+
+  ProductName:
+    Type: String
+    Default: awesomeapp
+    Description: Your new awesome product name
+
+  ProductNameCamel:
+    Type: String
+    Default: AwesomeApp
+    Description: Your new awesome product name in camel case
+
+  ComponentName:
+    Type: String
+    Default: app
+    Description: Application component name, e.g. my-component
+
+  EcrRepoNamePrefix:
+    Type: String
+    Default: ecr
+    Description: Prefix for AWS ECR repo name, e.g. my-prefix
+
+Resources:
+
+  ecrEcrRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub "${EcrRepoNamePrefix}-${ProductName}/${ComponentName}"
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+            {
+              "rulePriority": 1,
+              "description": "Clean production images",
+              "selection": {
+                "tagStatus": "tagged",
+                "tagPrefixList": ["main"],
+                "countType": "imageCountMoreThan",
+                "countNumber": 3
+              },
+              "action": { "type": "expire" }
+            },
+            {
+              "rulePriority": 2,
+              "description": "Clean development images",
+              "selection": {
+                "tagStatus": "tagged",
+                "tagPrefixList": ["dev"],
+                "countType": "imageCountMoreThan",
+                "countNumber": 3
+              },
+              "action": { "type": "expire" }
+            },
+            {
+              "rulePriority": 3,
+              "description": "Clean QA images",
+              "selection": {
+                "tagStatus": "tagged",
+                "tagPrefixList": ["qa"],
+                "countType": "imageCountMoreThan",
+                "countNumber": 3
+              },
+              "action": { "type": "expire" }
+            },
+            {
+              "rulePriority": 4,
+              "description": "Only keep untagged images for 1 days",
+              "selection": {
+                "tagStatus": "untagged",
+                "countType": "sinceImagePushed",
+                "countUnit": "days",
+                "countNumber": 1
+              },
+              "action": { "type": "expire" }
+            }
+          ]}
+      Tags:
+        - Key: Product
+          Value: !Ref ProductName
+        - Key: Environment
+          Value: production
+        - Key: Name
+          Value: !Sub "${EcrRepoNamePrefix}-${ProductName}-${ComponentName}"
+
+  ssmEcrRepoName:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "${ProductNameCamel}EcrRepoName-${ComponentName}"
+      Type: String
+      Value: !Sub "${EcrRepoNamePrefix}-${ProductName}/${ComponentName}"

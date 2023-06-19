@@ -1,0 +1,108 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: AwesomeApp - AWS IAM roles and policies
+
+Parameters:
+
+  ProductName:
+    Type: String
+    Default: awesomeapp
+    Description: Your new awesome product name
+
+  ProductNameCamel:
+    Type: String
+    Default: AwesomeApp
+    Description: Your new awesome product name in camel case
+
+  LambdaNamePrefix:
+    Type: String
+    Default: lmb
+    Description: Prefix for AWS Lambda function name, e.g. my-prefix
+
+Resources:
+
+  iamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProductNameCamel}Role"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSLambdaExecute
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service:
+              - lambda.amazonaws.com
+              - apigateway.amazonaws.com
+          Action: sts:AssumeRole
+
+  iamPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${ProductNameCamel}UserPolicy" # TODO: check naming here
+      Roles:
+        - !Ref iamRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          #
+          # Allow AWS Lambda invocation
+          #
+          - Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource:
+              - !Sub "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaNamePrefix}-${ProductName}*"
+          #
+          # Allow AWS ECR access
+          #
+          - Effect: Allow
+            Action:
+              - ecr:InitiateLayerUpload
+              - ecr:SetRepositoryPolicy
+              - ecr:GetRepositoryPolicy
+              - ecr:BatchGetImage
+              - ecr:GetDownloadUrlForLayer
+            Resource: !Sub "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:${ProductNameCamel}EcrRepoName-api}}"
+          #
+          # DynamoDB: This section is optional
+          #
+          # - Effect: Allow
+          #   Action:
+          #     - dynamodb:*
+          #   Resource:
+          #     - !Sub "arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProductName}*"
+          #
+          # S3: This section is optional
+          #
+          # - Effect: Allow
+          #   Action:
+          #     - s3:PutObject
+          #     - s3:PutObjectAcl
+          #     - s3:GetObject
+          #     - s3:ListBucket
+          #     - s3:DeleteObject
+          #   Resource:
+          #     - !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:${ProductNameCamel}BucketName-${ComponentName}:1}}"
+          #     - !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:${ProductNameCamel}BucketName-${ComponentName}:1}}/*"
+          #
+          # SQS: This section is optional
+          #
+          # - Effect: Allow
+          #   Action:
+          #     - sqs:ChangeMessageVisibility
+          #     - sqs:GetQueueUrl
+          #     - sqs:DeleteMessage
+          #     - sqs:ReceiveMessage
+          #     - sqs:SendMessage
+          #   Resource:
+          #     - !Sub "arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:*${ProductName}*"
+
+  ssmRoleArn:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "${ProductNameCamel}RoleArn"
+      Type: String
+      Value: !GetAtt [iamRole, Arn]
